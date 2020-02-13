@@ -155,12 +155,29 @@ use std::{thread, time};
 
 #[test]
 fn end_to_end_upload() {
+    use std::path::Path;
+    use encrypt::header::{PREFIX, PREFIX_SIZE};
+    /*
+    This test:
+     - spawns a node server that uploads files in tests/fixtures/server-static/uploads/
+     - spawns a ds proxy that uses the node proxy as a storage backend
+     - uploads a file using curl via the DS proxy
+     - checks that said file is encrypted
+     //- downloads the encrypted file via the proxy, and checks that its content matches the original content
+    */
     let password = "plop";
     let salt = "12345678901234567890123456789012";
     let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
     let chunk_size = "512"; //force multiple pass
 
     let original = "tests/fixtures/computer.svg";
+    let encrypted_file = "tests/fixtures/server-static/uploads/victory";
+
+    if Path::new(encrypted_file).exists() {
+        std::fs::remove_file(encrypted_file)
+            .expect(&format!("Unable to remove {} !", encrypted_file.to_owned()));
+    }
+
     let mut proxy_server_command = Command::cargo_bin("ds_proxy").unwrap();
     let mut proxy_server = proxy_server_command
         .arg("proxy")
@@ -182,19 +199,23 @@ fn end_to_end_upload() {
     thread::sleep(time::Duration::from_millis(5000));
     println!("on envoie la purée !");
 
-    let mut curl_output = Command::new("curl")
+    let curl_output = Command::new("curl")
         .arg("-XPUT")
         .arg("localhost:4444/victory")
         .arg("--data-binary")
         .arg("@tests/fixtures/computer.svg")
         .output()
-        .expect("failed to execute child");
+        .expect("failed to perform upload");
 
     println!("{:?}", String::from_utf8_lossy(&curl_output.stdout));
     println!("{:?}", String::from_utf8_lossy(&curl_output.stderr));
 
-    let ten_millis = time::Duration::from_millis(5000);
-    thread::sleep(ten_millis);
+    thread::sleep(time::Duration::from_millis(5000));
+    if curl_output.status.success() {
+        let original_bytes = std::fs::read(original).expect("original should exist !");
+        let encrypted_bytes = std::fs::read(encrypted_file).expect("encrypted should exist !");
+        assert_eq!(&encrypted_bytes[0..PREFIX_SIZE], PREFIX);
+    }
 
     proxy_server.kill().unwrap();
     node_server.kill().unwrap();
