@@ -4,7 +4,7 @@ var fs = require('fs');
 var express = require('express');
 var app = express();
 
-app.put('/', function(req, res) {
+app.put('*', function(req, res) {
   req.pipe(fs.createWriteStream(__dirname + '/uploads/' +req.url));
 
   res.writeHead(200, {'Content-Type': 'text/plain'});
