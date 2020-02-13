@@ -154,16 +154,16 @@ use std::{thread, time};
 
 
 #[test]
-fn end_to_end_upload() {
+fn end_to_end_upload_and_download() {
     use std::path::Path;
     use encrypt::header::{PREFIX, PREFIX_SIZE};
     /*
     This test:
-     - spawns a node server that uploads files in tests/fixtures/server-static/uploads/
+     - spawns a node server that stores uploaded files in tests/fixtures/server-static/uploads/
      - spawns a ds proxy that uses the node proxy as a storage backend
      - uploads a file using curl via the DS proxy
      - checks that said file is encrypted
-     //- downloads the encrypted file via the proxy, and checks that its content matches the original content
+     - downloads the encrypted file via the proxy, and checks that its content matches the initial content
     */
     let password = "plop";
     let salt = "12345678901234567890123456789012";
@@ -195,11 +195,10 @@ fn end_to_end_upload() {
         .spawn()
         .expect("failed to execute child");
 
-
     thread::sleep(time::Duration::from_millis(5000));
     println!("on envoie la purée !");
 
-    let curl_output = Command::new("curl")
+    let curl_upload = Command::new("curl")
         .arg("-XPUT")
         .arg("localhost:4444/victory")
         .arg("--data-binary")
@@ -207,16 +206,25 @@ fn end_to_end_upload() {
         .output()
         .expect("failed to perform upload");
 
-    println!("{:?}", String::from_utf8_lossy(&curl_output.stdout));
-    println!("{:?}", String::from_utf8_lossy(&curl_output.stderr));
+    println!("{:?}", String::from_utf8_lossy(&curl_upload.stdout));
+    println!("{:?}", String::from_utf8_lossy(&curl_upload.stderr));
 
-    thread::sleep(time::Duration::from_millis(5000));
-    if curl_output.status.success() {
-        let original_bytes = std::fs::read(original).expect("original should exist !");
+    if curl_upload.status.success() {
         let encrypted_bytes = std::fs::read(encrypted_file).expect("encrypted should exist !");
         assert_eq!(&encrypted_bytes[0..PREFIX_SIZE], PREFIX);
+
+        let curl_download = Command::new("curl")
+            .arg("-XGET")
+            .arg("localhost:4444/victory")
+            .output()
+            .expect("failed to perform download");
+
+        let original_bytes = std::fs::read(original).expect("original should exist !");
+        assert_eq!(curl_download.stdout, original_bytes);
+    } else {
+        panic!("unable to check file upload !");
     }
 
-    proxy_server.kill().unwrap();
-    node_server.kill().unwrap();
+    proxy_server.kill().expect("killing the proxy server should succeed !");
+    node_server.kill().expect("killing node's upload server should succeed !");
 }

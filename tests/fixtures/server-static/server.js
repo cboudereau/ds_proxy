@@ -11,5 +11,5 @@ app.put('*', function(req, res) {
   res.end('OK!');
 });
 
-app.use(express.static('uploads'));
+app.use(express.static(__dirname + '/uploads'));
 app.listen(3000);
