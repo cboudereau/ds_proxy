@@ -149,3 +149,32 @@ fn the_app_crashes_with_an_invalid_password() {
 
     decrypt_cmd.assert().failure();
 }
+
+use std::{thread, time};
+
+
+#[test]
+fn end_to_end_upload() {
+    let password = "plop";
+    let salt = "12345678901234567890123456789012";
+    let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
+    let chunk_size = "512"; //force multiple pass
+
+    let original = "tests/fixtures/computer.svg";
+    let ten_millis = time::Duration::from_millis(5000);
+    let mut proxy_server = Command::cargo_bin("ds_proxy").unwrap();
+    let mut child = proxy_server
+        .arg("proxy")
+        .arg("--address=localhost:4444")
+        .arg("--upstream-url=\"http://localhost:3000\"")
+        .arg(hash_file_arg)
+        .env("DS_PASSWORD", password)
+        .env("DS_SALT", salt)
+        .env("DS_CHUNK_SIZE", chunk_size)
+        .spawn()
+        .unwrap();
+
+    thread::sleep(ten_millis);
+
+    child.kill();
+}
