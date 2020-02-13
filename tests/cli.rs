@@ -161,12 +161,11 @@ fn end_to_end_upload() {
     let chunk_size = "512"; //force multiple pass
 
     let original = "tests/fixtures/computer.svg";
-    let ten_millis = time::Duration::from_millis(5000);
-    let mut proxy_server = Command::cargo_bin("ds_proxy").unwrap();
-    let mut child = proxy_server
+    let mut proxy_server_command = Command::cargo_bin("ds_proxy").unwrap();
+    let mut proxy_server = proxy_server_command
         .arg("proxy")
         .arg("--address=localhost:4444")
-        .arg("--upstream-url=\"http://localhost:3000\"")
+        .arg("--upstream-url=http://localhost:3000")
         .arg(hash_file_arg)
         .env("DS_PASSWORD", password)
         .env("DS_SALT", salt)
@@ -174,7 +173,29 @@ fn end_to_end_upload() {
         .spawn()
         .unwrap();
 
+    let mut node_server = Command::new("node")
+        .arg("tests/fixtures/server-static/server.js")
+        .spawn()
+        .expect("failed to execute child");
+
+
+    thread::sleep(time::Duration::from_millis(5000));
+    println!("on envoie la purée !");
+
+    let mut curl_output = Command::new("curl")
+        .arg("-XPUT")
+        .arg("localhost:4444/victory")
+        .arg("--data-binary")
+        .arg("@tests/fixtures/computer.svg")
+        .output()
+        .expect("failed to execute child");
+
+    println!("{:?}", String::from_utf8_lossy(&curl_output.stdout));
+    println!("{:?}", String::from_utf8_lossy(&curl_output.stderr));
+
+    let ten_millis = time::Duration::from_millis(5000);
     thread::sleep(ten_millis);
 
-    child.kill();
+    proxy_server.kill().unwrap();
+    node_server.kill().unwrap();
 }
