@@ -15,7 +15,7 @@ app.put('*', function(req, res) {
 app.get('/chunked/*', function(req, res){
   const path = req.url.substr(8)
 
-  const readStream = fs.createReadStream(__dirname + '/uploads/' + path, { highWaterMark: 1 * 1024, encoding: 'utf8' });
+  const readStream = fs.createReadStream(__dirname + '/uploads/' + path, { highWaterMark: 1 * 1024});
 
   res.writeHead(200, {'Content-Type': 'text/plain'});
   readStream.pipe(res);
