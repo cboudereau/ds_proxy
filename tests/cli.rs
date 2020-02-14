@@ -221,6 +221,14 @@ fn end_to_end_upload_and_download() {
 
         let original_bytes = std::fs::read(original).expect("original should exist !");
         assert_eq!(curl_download.stdout, original_bytes);
+
+        let curl_download = Command::new("curl")
+            .arg("-XGET")
+            .arg("localhost:4444/chunked/victory")
+            .output()
+            .expect("failed to perform download");
+
+        assert_eq!(curl_download.stdout, original_bytes);
     } else {
         panic!("unable to check file upload !");
     }
